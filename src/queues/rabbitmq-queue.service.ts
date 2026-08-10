@@ -53,6 +53,27 @@ export class RabbitMqQueueService
       return;
     }
 
+    if (queueName.endsWith('.dlq')) {
+      // A DLQ queue is already declared and bound by its owning work
+      // queue's assertWorkQueue() call (at subscribe time), with plain
+      // `durable: true` and no dead-letter args of its own. Routing a
+      // publish through assertWorkQueue() here would try to redeclare it
+      // WITH dead-letter args, which RabbitMQ rejects (406
+      // PRECONDITION_FAILED, closing the channel) since queue arguments
+      // are immutable once set — so just publish straight to the DLX
+      // exchange the queue is already bound to.
+      channel.publish(
+        env.rabbitmqDlxExchange,
+        queueName,
+        Buffer.from(JSON.stringify(message)),
+        {
+          contentType: 'application/json',
+          persistent: true,
+        },
+      );
+      return;
+    }
+
     await this.assertWorkQueue(queueName);
     channel.publish(
       env.rabbitmqExchange,
