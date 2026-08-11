@@ -2,9 +2,21 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 
-import { User, type UserDocument } from '../../domains/users/schemas/user.schema';
+import { NotificationType } from '../../domains/notifications/models';
+import {
+  User,
+  type UserDocument,
+} from '../../domains/users/schemas/user.schema';
 import { FirebaseAdminService } from './firebase-admin.service';
 import type { NotificationPushPayload } from './notification-push.types';
+
+const NOTIFICATION_CATEGORY_BY_TYPE: Partial<
+  Record<NotificationType, 'donations' | 'campaigns' | 'conversations'>
+> = {
+  [NotificationType.DONATION_STATUS_UPDATED]: 'donations',
+  [NotificationType.NEW_MESSAGE]: 'conversations',
+  [NotificationType.CAMPAIGN_GOAL_REACHED]: 'campaigns',
+};
 
 function toFcmData(data?: Record<string, unknown>) {
   return Object.entries(data ?? {}).reduce<Record<string, string>>(
@@ -37,10 +49,29 @@ export class PushNotificationsService {
       .lean()
       .exec();
 
-    if (!user?.settings?.notifications?.push) {
+    if (!user) {
       this.logger.debug(
         JSON.stringify({
-          event: 'push_skipped_user_disabled',
+          event: 'push_skipped_user_not_found',
+          userId: input.userId,
+        }),
+      );
+      return;
+    }
+
+    const notificationType = input.data?.type as NotificationType | undefined;
+    const category = notificationType
+      ? NOTIFICATION_CATEGORY_BY_TYPE[notificationType]
+      : undefined;
+    const categoryEnabled = category
+      ? user.settings?.notifications?.[category] !== false
+      : true;
+
+    if (!categoryEnabled) {
+      this.logger.debug(
+        JSON.stringify({
+          event: 'push_skipped_category_disabled',
+          category,
           userId: input.userId,
         }),
       );
