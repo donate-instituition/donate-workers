@@ -69,7 +69,7 @@ describe('TaxReceiptsService', () => {
             _id: donorUserId,
             fullName: 'Doadora Teste',
             email: 'doadora@example.com',
-            settings: { notifications: { push: false, email: false } },
+            settings: { notifications: { donations: false } },
           }),
         ),
       }),
@@ -107,7 +107,7 @@ describe('TaxReceiptsService', () => {
     expect(taxReceiptModel.create).not.toHaveBeenCalled();
     expect(result).toBe(existingReceipt);
     expect(existingReceipt.save).toHaveBeenCalled();
-    // Donor disabled both channels -> no notification/email side effects.
+    // Donor disabled the donations category -> no notification/email side effects.
     expect(notificationsService.createOnceByDataField).not.toHaveBeenCalled();
     expect(emailJobsService.sendDonationReceiptEmail).not.toHaveBeenCalled();
   });

@@ -255,34 +255,34 @@ export class TaxReceiptsService {
       institutionName: string;
     },
   ) {
-    if (donor.settings?.notifications?.push !== false) {
-      await this.notificationsService.createOnceByDataField(
-        'receiptNumber',
-        receipt.receiptNumber,
-        {
-          body: `Sua doação para ${input.campaignTitle} foi confirmada.`,
-          data: {
-            donationId: receipt.donationId.toString(),
-            receiptId: receipt._id.toString(),
-            receiptNumber: receipt.receiptNumber,
-          },
-          title: 'Doação confirmada',
-          type: NotificationType.DONATION_STATUS_UPDATED,
-          userId: receipt.donorUserId,
-        },
-      );
+    if (donor.settings?.notifications?.donations === false) {
+      return;
     }
 
-    if (donor.settings?.notifications?.email !== false) {
-      await this.emailJobsService.sendDonationReceiptEmail({
-        amountFormatted: this.formatCurrency(input.grossAmount),
-        campaignTitle: input.campaignTitle,
-        institutionName: input.institutionName,
-        name: donor.fullName ?? donor.email,
-        receiptNumber: receipt.receiptNumber,
-        to: donor.email,
-        userId: donor._id.toString(),
-      });
-    }
+    await this.notificationsService.createOnceByDataField(
+      'receiptNumber',
+      receipt.receiptNumber,
+      {
+        body: `Sua doação para ${input.campaignTitle} foi confirmada.`,
+        data: {
+          donationId: receipt.donationId.toString(),
+          receiptId: receipt._id.toString(),
+          receiptNumber: receipt.receiptNumber,
+        },
+        title: 'Doação confirmada',
+        type: NotificationType.DONATION_STATUS_UPDATED,
+        userId: receipt.donorUserId,
+      },
+    );
+
+    await this.emailJobsService.sendDonationReceiptEmail({
+      amountFormatted: this.formatCurrency(input.grossAmount),
+      campaignTitle: input.campaignTitle,
+      institutionName: input.institutionName,
+      name: donor.fullName ?? donor.email,
+      receiptNumber: receipt.receiptNumber,
+      to: donor.email,
+      userId: donor._id.toString(),
+    });
   }
 }
