@@ -113,6 +113,7 @@ const mongodbUri =
 
 export const env = {
   appEnvironment,
+  digestCronExpression: getStringEnv('DIGEST_CRON_EXPRESSION', '0 9 * * 1'),
   emailBrandHeroUrl: getStringEnv('EMAIL_BRAND_HERO_URL', ''),
   emailBrandLogoUrl: getStringEnv('EMAIL_BRAND_LOGO_URL', ''),
   emailDlqName: getStringEnv('EMAIL_DLQ_NAME', 'email.send.dlq'),
