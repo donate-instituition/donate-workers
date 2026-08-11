@@ -1,6 +1,6 @@
 import { Injectable, OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
 
-import { env } from '../../config/env';
+import { env, isWorkerEnabled } from '../../config/env';
 import { WorkerRunnerService } from '../../core/worker-runner.service';
 import { NotificationPushHandlerService } from './notification-push-handler.service';
 import type { NotificationPushPayload } from './notification-push.types';
@@ -17,7 +17,7 @@ export class NotificationPushWorkerService
   ) {}
 
   onModuleInit() {
-    if (env.workerName !== 'notification-push') {
+    if (!isWorkerEnabled('notification-push')) {
       return;
     }
 

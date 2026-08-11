@@ -1,6 +1,6 @@
 import { Injectable, OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
 
-import { env } from '../../config/env';
+import { env, isWorkerEnabled } from '../../config/env';
 import { WorkerRunnerService } from '../../core/worker-runner.service';
 import { ReceiptGenerateHandlerService } from './receipt-generate-handler.service';
 import type { ReceiptGeneratePayload } from './receipt-generate.types';
@@ -17,7 +17,7 @@ export class ReceiptGenerateWorkerService
   ) {}
 
   onModuleInit() {
-    if (env.workerName !== 'receipt-generate') {
+    if (!isWorkerEnabled('receipt-generate')) {
       return;
     }
 

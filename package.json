@@ -7,8 +7,8 @@
   "license": "MIT",
   "scripts": {
     "build": "nest build",
-    "start": "nest start",
-    "start:dev": "nest start --watch",
+    "start": "WORKER_NAME=all nest start",
+    "start:dev": "WORKER_NAME=all nest start --watch",
     "start:email": "WORKER_NAME=email nest start",
     "start:stripe-webhook": "WORKER_NAME=stripe-webhook nest start",
     "start:receipt-generate": "WORKER_NAME=receipt-generate nest start",

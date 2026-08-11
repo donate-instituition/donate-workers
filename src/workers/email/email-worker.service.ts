@@ -1,6 +1,6 @@
 import { Injectable, OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
 
-import { env } from '../../config/env';
+import { env, isWorkerEnabled } from '../../config/env';
 import { WorkerRunnerService } from '../../core/worker-runner.service';
 import { EmailHandlerService } from './email-handler.service';
 import type { EmailPayload } from './email.types';
@@ -15,7 +15,7 @@ export class EmailWorkerService implements OnModuleInit, OnApplicationShutdown {
   ) {}
 
   onModuleInit() {
-    if (env.workerName !== 'email') {
+    if (!isWorkerEnabled('email')) {
       return;
     }
 

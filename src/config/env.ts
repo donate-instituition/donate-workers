@@ -216,3 +216,10 @@ export const env = {
   ),
   workerName: getStringEnv('WORKER_NAME', 'email'),
 };
+
+// WORKER_NAME=all runs every worker in this single process — convenient for
+// local dev (one `npm run start`); production still scales each worker as
+// its own process via WORKER_NAME=<name>.
+export function isWorkerEnabled(name: string): boolean {
+  return env.workerName === 'all' || env.workerName === name;
+}

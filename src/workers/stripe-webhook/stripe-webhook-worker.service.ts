@@ -1,6 +1,6 @@
 import { Injectable, OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
 
-import { env } from '../../config/env';
+import { env, isWorkerEnabled } from '../../config/env';
 import { WorkerRunnerService } from '../../core/worker-runner.service';
 import { StripeWebhookHandlerService } from './stripe-webhook-handler.service';
 import type { StripeWebhookPayload } from './stripe-webhook.types';
@@ -17,7 +17,7 @@ export class StripeWebhookWorkerService
   ) {}
 
   onModuleInit() {
-    if (env.workerName !== 'stripe-webhook') {
+    if (!isWorkerEnabled('stripe-webhook')) {
       return;
     }
 
