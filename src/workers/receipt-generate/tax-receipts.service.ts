@@ -140,7 +140,6 @@ export class TaxReceiptsService {
       campaignTitle: campaign?.title ?? 'Campanha',
       donorName: donor.fullName ?? donor.email,
       grossAmount,
-      institutionId: donation.institutionId.toString(),
       institutionName: institution.displayName || institution.legalName,
       netAmount,
       serviceFeeAmount,
@@ -176,7 +175,6 @@ export class TaxReceiptsService {
       campaignTitle: string;
       donorName: string;
       grossAmount: number;
-      institutionId: string;
       institutionName: string;
       netAmount: number;
       serviceFeeAmount: number;
@@ -184,7 +182,7 @@ export class TaxReceiptsService {
     },
   ) {
     const filename = `${receipt.receiptNumber}.pdf`;
-    const objectKey = `receipts/${receipt.issuedAt.getFullYear()}/${input.institutionId}/${filename}`;
+    const objectKey = `private/donations/${receipt.donationId.toString()}/receipts/${filename}`;
 
     const pdfBuffer = await new Promise<Buffer>((resolve, reject) => {
       const doc = new PDFDocument({ margin: 48, size: 'A4' });
