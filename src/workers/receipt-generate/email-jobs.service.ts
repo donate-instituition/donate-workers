@@ -17,6 +17,15 @@ type SendDonationReceiptEmailInput = {
   userId: string;
 };
 
+type SendWeeklyDigestEmailInput = {
+  campaignTitles: string[];
+  donationsCount: number;
+  name: string;
+  to: string;
+  totalAmountFormatted: string;
+  userId: string;
+};
+
 type BrandedEmailInput = {
   badge: string;
   bodyHtml: string;
@@ -112,6 +121,41 @@ export class EmailJobsService {
             userId: input.userId,
           },
           subject: 'Sua doação foi confirmada no EloDoar',
+          text,
+          to: input.to,
+        },
+        type: 'email.send',
+      }),
+    );
+  }
+
+  async sendWeeklyDigestEmail(input: SendWeeklyDigestEmailInput) {
+    const text = `Olá, ${input.name}. Nos últimos 7 dias você doou ${input.totalAmountFormatted} em ${input.donationsCount} doação(ões).`;
+    const campaignList = input.campaignTitles
+      .map((title) => `<li>${this.escapeHtml(title)}</li>`)
+      .join('');
+
+    await this.queue.publish(
+      env.emailQueueName,
+      createQueueMessage({
+        idempotencyKey: `email:weekly-digest:${input.userId}:${new Date().toISOString().slice(0, 10)}`,
+        payload: {
+          html: this.renderBrandedEmail(await this.getEmailSettings(), {
+            badge: 'Resumo semanal',
+            bodyHtml: `<p>Olá, ${this.escapeHtml(input.name)}.</p><p>Nos últimos 7 dias você apoiou:</p><ul style="padding-left:20px;margin:12px 0;">${campaignList}</ul>`,
+            contactContext: 'Continue acompanhando suas campanhas favoritas no app.',
+            headline: 'Seu resumo da semana',
+            highlight: {
+              label: 'Total doado na semana',
+              value: input.totalAmountFormatted,
+            },
+            preheader: `Você doou ${input.totalAmountFormatted} essa semana.`,
+          }),
+          metadata: {
+            template: 'weekly-digest',
+            userId: input.userId,
+          },
+          subject: 'Seu resumo semanal no EloDoar',
           text,
           to: input.to,
         },

@@ -13,6 +13,7 @@
     "start:stripe-webhook": "WORKER_NAME=stripe-webhook nest start",
     "start:receipt-generate": "WORKER_NAME=receipt-generate nest start",
     "start:notification-push": "WORKER_NAME=notification-push nest start",
+    "start:digest": "WORKER_NAME=digest nest start",
     "start:prod": "node dist/main",
     "test": "jest --runInBand"
   },
@@ -24,6 +25,7 @@
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/mongoose": "^11.0.4",
+    "@nestjs/schedule": "^6.1.3",
     "amqplib": "^2.0.1",
     "dotenv": "^17.4.2",
     "firebase-admin": "^14.2.0",
