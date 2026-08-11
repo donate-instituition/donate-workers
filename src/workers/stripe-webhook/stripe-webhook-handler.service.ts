@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import Stripe from 'stripe';
 
 import { campaignCacheKey, institutionCacheKey, RedisService } from '../../cache';
@@ -21,10 +21,13 @@ import {
   Donation,
   DonationDocument,
 } from '../../domains/donations/schemas/donation.schema';
+import { FollowTargetType } from '../../domains/follows/models';
+import { Follow, FollowDocument } from '../../domains/follows/schemas/follow.schema';
 import {
   Institution,
   InstitutionDocument,
 } from '../../domains/institutions/schemas/institution.schema';
+import { NotificationType } from '../../domains/notifications/models';
 import { PaymentStatus } from '../../domains/payments/models';
 import { PaymentGateway, PaymentMethod } from '../../domains/payments/models';
 import {
@@ -40,6 +43,7 @@ import { createQueueMessage } from '../../queues/queue-message';
 import { QUEUE_PORT } from '../../queues/queue.types';
 import type { QueuePort } from '../../queues/queue.types';
 import type { QueueMessage } from '../../queues/queue.types';
+import { NotificationsService } from '../receipt-generate/notifications.service';
 import type { StripeWebhookPayload } from './stripe-webhook.types';
 
 // Ported from donate-server's StripeWebhookProcessorService — same Mongo
@@ -62,8 +66,11 @@ export class StripeWebhookHandlerService {
     private readonly campaignModel: Model<CampaignDocument>,
     @InjectModel(Institution.name)
     private readonly institutionModel: Model<InstitutionDocument>,
+    @InjectModel(Follow.name)
+    private readonly followModel: Model<FollowDocument>,
     private readonly appSettingsService: AppSettingsService,
     private readonly redisService: RedisService,
+    private readonly notificationsService: NotificationsService,
     @Inject(QUEUE_PORT) private readonly queue: QueuePort,
   ) {}
 
@@ -200,16 +207,11 @@ export class StripeWebhookHandlerService {
     donation.status = DonationStatus.PAID;
     await donation.save();
 
-    await this.campaignModel
-      .findByIdAndUpdate(donation.campaignId, {
-        $inc: {
-          'progress.moneyRaised': payment.amount / 100,
-          'stats.donationsCount': 1,
-        },
-      })
-      .exec();
-
     if (donation.campaignId) {
+      await this.incrementCampaignProgress(
+        donation.campaignId,
+        payment.amount / 100,
+      );
       await Promise.all([
         this.redisService.del(campaignCacheKey(donation.campaignId.toString())),
         this.redisService.increment('cache:version:campaigns'),
@@ -414,18 +416,93 @@ export class StripeWebhookHandlerService {
       status: PaymentStatus.PAID,
     });
 
-    await this.campaignModel
-      .findByIdAndUpdate(campaignId, {
-        $inc: {
-          'progress.moneyRaised': amountCents / 100,
-          'stats.donationsCount': 1,
-        },
-      })
-      .exec();
+    await this.incrementCampaignProgress(campaignId, amountCents / 100);
 
     await this.queueReceiptGeneration(
       donation._id.toString(),
       payment._id.toString(),
+    );
+  }
+
+  private async incrementCampaignProgress(
+    campaignId: Types.ObjectId | string,
+    amount: number,
+  ) {
+    const updatedCampaign = await this.campaignModel
+      .findByIdAndUpdate(
+        campaignId,
+        {
+          $inc: {
+            'progress.moneyRaised': amount,
+            'stats.donationsCount': 1,
+          },
+        },
+        { returnDocument: 'after' },
+      )
+      .exec();
+
+    if (updatedCampaign) {
+      await this.notifyCampaignGoalReachedIfCrossed(updatedCampaign, amount);
+    }
+
+    return updatedCampaign;
+  }
+
+  private async notifyCampaignGoalReachedIfCrossed(
+    campaign: CampaignDocument,
+    incrementAmount: number,
+  ) {
+    const target = campaign.goal?.moneyTarget ?? 0;
+    const after = campaign.progress?.moneyRaised ?? 0;
+    const before = after - incrementAmount;
+
+    if (target <= 0 || before >= target || after < target) {
+      return;
+    }
+
+    const [campaignFollows, institutionFollows] = await Promise.all([
+      this.followModel
+        .find({ targetType: FollowTargetType.CAMPAIGN, targetId: campaign._id })
+        .select('followerUserId')
+        .lean()
+        .exec(),
+      this.followModel
+        .find({
+          targetType: FollowTargetType.INSTITUTION,
+          targetId: campaign.institutionId,
+        })
+        .select('followerUserId')
+        .lean()
+        .exec(),
+    ]);
+
+    const followerIds = Array.from(
+      new Set(
+        [...campaignFollows, ...institutionFollows].map((follow) =>
+          follow.followerUserId.toString(),
+        ),
+      ),
+    );
+
+    await Promise.all(
+      followerIds.map((followerId) => {
+        const key = `${campaign._id.toString()}:${followerId}`;
+
+        return this.notificationsService.createOnceByDataField(
+          'campaignGoalReachedKey',
+          key,
+          {
+            body: `A campanha "${campaign.title}" atingiu a meta de arrecadação!`,
+            data: {
+              campaignGoalReachedKey: key,
+              campaignId: campaign._id.toString(),
+            },
+            title: 'Meta atingida! 🎉',
+            type: NotificationType.CAMPAIGN_GOAL_REACHED,
+            userId: new Types.ObjectId(followerId),
+          },
+        );
+      }),
     );
   }
 
