@@ -34,7 +34,12 @@ como processo independente).
    fiscal e o registro correspondente; publica a notificação push "doação
    confirmada" e o e-mail de recibo, ambos condicionados à preferência
    `notifications.donations` do doador (um único campo controla os dois
-   canais).
+   canais). O PDF é gravado no S3 sob
+   `private/donations/{donationId}/receipts/{arquivo}` (antes desta sessão
+   era uma chave achatada `receipts/{ano}/{institutionId}/{arquivo}`, sem
+   a hierarquia `public/`/`private/` usada pelo resto do sistema) — o
+   `donate-server` não precisou mudar nada para ler a chave nova, já que só
+   lê `receipt.metadata.storageObjectKey`, seja lá o que estiver ali.
 3. **notification-push** (fila `notification.push`) — envia via Firebase
    Admin (FCM) para os tokens de push ativos do usuário. O envio é
    filtrado **por categoria**: o tipo da notificação
@@ -88,6 +93,11 @@ worker `stripe-webhook` precisa consultar isso para saber quem notificar.
 5. Consolidação do envio de recibo (push + e-mail) para depender de um
    único campo `notifications.donations`, em vez de dois campos separados
    `push`/`email` que existiam antes.
+6. **Chave do recibo fiscal migrada para a hierarquia `private/` do S3**
+   (`private/donations/{donationId}/receipts/{arquivo}`), parte da
+   persistência real no S3 feita nesta rodada (avatares, logos, capas,
+   comprovantes, recibos) — ver `donate-infra/RELATORIO-TCC.md` para a
+   visão completa da arquitetura de storage.
 
 ## Ressalva sobre a documentação já existente no repositório
 
