@@ -41,6 +41,20 @@ describe('ResendEmailProviderService', () => {
     });
   });
 
+  it('throws when RESEND_API_KEY is not configured', async () => {
+    env.resendApiKey = '';
+    const provider = new ResendEmailProviderService();
+
+    await expect(
+      provider.send({
+        from: 'no-reply@example.com',
+        subject: 'Assunto',
+        text: 'Oi',
+        to: ['ana@example.com'],
+      }),
+    ).rejects.toThrow('RESEND_API_KEY is required when EMAIL_PROVIDER=resend');
+  });
+
   it('throws when Resend rejects the request', async () => {
     env.resendApiKey = 'test-key';
     global.fetch = jest.fn().mockResolvedValue({
